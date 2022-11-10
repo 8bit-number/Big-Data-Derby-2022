@@ -1,0 +1,72 @@
+version: "2"
+
+services:
+  spark:
+    image: docker.io/bitnami/spark:3.3
+    container_name: spark_master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - 8080:8080
+    networks:
+      - test_kafka_network
+    volumes:
+      - ./spark_jobs:/home
+      # - ./spark_job_files:/opt
+
+
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    container_name: zookeeper
+    hostname: zookeeper
+    ports:
+      - 2181:2181
+    networks:
+      - test_kafka_network
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+      
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: kafka
+    hostname: kafka
+    ports:
+      - 9092
+      - 29092:29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      ALLOW_PLAINTEXT_LISTENER: yes
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LISTENERS: EXTERNAL_SAME_HOST://:29092,INTERNAL://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL_SAME_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL_SAME_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+    depends_on:
+      - zookeeper
+    networks:
+      - test_kafka_network
+    volumes:
+      - ./kafka_scripts:/home
+
+  # kafka-consumer-dev:
+  #   build:
+  #     context: ./kafka_scripts
+  #   networks:
+  #     - test_kafka_network
+  #   command: ["python", "/home/single_event_consumer.py"]
+
+  # kafka-producer-dev:
+  #   build:
+  #     context: ./kafka_scripts
+  #     dockerfile: Dockerfile
+  #   networks:
+  #     - test_kafka_network
+
+networks:
+  test_kafka_network:
+    name: kafka_docker
